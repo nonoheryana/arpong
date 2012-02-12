@@ -17,6 +17,7 @@
 #include <AR/video.h>
 #include <AR/param.h>
 #include <AR/ar.h>
+#include <AR/arMulti.h>
 
 /* Camera configuration; on Windows, we need to flip the image vertically */
 #ifdef _WIN32
@@ -26,12 +27,17 @@ char *VCONF = "";
 #endif
 
 const int THRESHOLD = 100;
+
 const char *CPARAM_NAME = "Data/camera_para.dat";
-const char *PATT_NAME = "Data/patt.hiro";
+
+const char *FIELD_NAME = "Data/multi/marker.dat";
+
+const char *PAD1_NAME = "Data/patt.hiro";
 const double PATT_WIDTH = 80.0;
 
-/** The pattern we are using */
-int patt_id;
+/** The patterns we loaded into the toolkit */
+int pad1_id;
+ARMultiMarkerInfoT *field_id;
 
 int total_frame_count = 0;
 
@@ -39,7 +45,7 @@ static void init(void);
 static void cleanup(void);
 static void keyEvent(unsigned char key, int x, int y);
 static void mainLoop(void);
-static void draw(double patt_trans[3][4]);
+static void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, double pad1_trans[3][4]);
 
 int main(int argc, char **argv)
 {
@@ -92,9 +98,15 @@ static void init(void)
     printf("*** Camera Parameter ***\n");
     arParamDisp(&cparam);
 
-    if( (patt_id=arLoadPatt(PATT_NAME)) < 0)
+    if( (pad1_id = arLoadPatt(PAD1_NAME)) < 0)
     {
-        printf("Unable to load the pattern file\n");
+        printf("Unable to load the pattern file for pad 1\n");
+        exit(1);
+    }
+
+    if( (field_id = arMultiReadConfigFile(FIELD_NAME)) == NULL)
+    {
+        printf("Unable to load the multi-pattern file\n");
         exit(1);
     }
 
@@ -113,6 +125,7 @@ static void mainLoop(void)
     ARMarkerInfo *marker_info;
     int marker_num;
     int j, k;
+    bool field_visible, pad1_visible;
 
     /* Grab a video frame */
     if( (dataPtr = (ARUint8 *)arVideoGetImage()) == NULL)
@@ -139,11 +152,17 @@ static void mainLoop(void)
 
     arVideoCapNext();
 
-    /* Check for object visibility */
+    /* Finds the playing field */
+    if(arMultiGetTransMat(marker_info, marker_num, field_id) < 0 )
+        field_visible = false;
+    else
+        field_visible = true;
+
+    /* Finds the pad */
     k = -1;
     for(j = 0; j < marker_num; j++)
     {
-        if(patt_id == marker_info[j].id)
+        if(pad1_id == marker_info[j].id)
         {
             if(k == -1)
                 k = j;
@@ -151,18 +170,21 @@ static void mainLoop(void)
                 k = j;
         }
     }
+
+    static double pad1_trans[3][4];
+
+    /* We didn't see the pad */
     if(k == -1)
+        pad1_visible = false;
+    else
     {
-        argSwapBuffers();
-        return;
+        /* Get the transformation between the marker and the real camera */
+        double patt_center[2] = {0.0, 0.0};
+        arGetTransMat(&marker_info[k], patt_center, PATT_WIDTH, pad1_trans);
+        pad1_visible = true;
     }
 
-    /* Get the transformation between the marker and the real camera */
-    double patt_center[2] = {0.0, 0.0};
-    double patt_trans[3][4];
-    arGetTransMat(&marker_info[k], patt_center, PATT_WIDTH, patt_trans);
-
-    draw(patt_trans);
+    draw(field_visible, field_id->trans, pad1_visible, pad1_trans);
 
     argSwapBuffers();
 }
@@ -177,7 +199,7 @@ static void cleanup(void)
     argCleanup();
 }
 
-static void draw(double patt_trans[3][4])
+static void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, double pad1_trans[3][4])
 {
     double gl_para[16];
     GLfloat mat_ambient[]     = {0.0, 0.0, 1.0, 1.0};
@@ -194,23 +216,48 @@ static void draw(double patt_trans[3][4])
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
-    /* Load the camera transformation matrix */
-    argConvGlpara(patt_trans, gl_para);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadMatrixd(gl_para);
+	if(pad1_visible)
+	{
+		/* Load the camera transformation matrix for pad1 */
+		argConvGlpara(pad1_trans, gl_para);
+		glMatrixMode(GL_MODELVIEW);
+		glLoadMatrixd(gl_para);
 
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
-    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-    glLightfv(GL_LIGHT0, GL_AMBIENT, ambi);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, lightZeroColor);
-    glMaterialfv(GL_FRONT, GL_SPECULAR, mat_flash);
-    glMaterialfv(GL_FRONT, GL_SHININESS, mat_flash_shiny);
-    glMaterialfv(GL_FRONT, GL_AMBIENT, mat_ambient);
-    glMatrixMode(GL_MODELVIEW);
-    glTranslatef(0.0, 0.0, 25.0);
-    glutSolidCube(50.0);
-    glDisable(GL_LIGHTING);
+		glEnable(GL_LIGHTING);
+		glEnable(GL_LIGHT0);
+		glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+		glLightfv(GL_LIGHT0, GL_AMBIENT, ambi);
+		glLightfv(GL_LIGHT0, GL_DIFFUSE, lightZeroColor);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, mat_flash);
+		glMaterialfv(GL_FRONT, GL_SHININESS, mat_flash_shiny);
+		glMaterialfv(GL_FRONT, GL_AMBIENT, mat_ambient);
+		glMatrixMode(GL_MODELVIEW);
+		glTranslatef(0.0, 0.0, 25.0);
+		glutSolidCube(50.0);
+		glDisable(GL_LIGHTING);
+		glDisable(GL_DEPTH_TEST);
+	}
 
-    glDisable(GL_DEPTH_TEST);
+	if(field_visible)
+	{
+		/* Load the camera transformation matrix for the field */
+		argConvGlpara(field_trans, gl_para);
+		glMatrixMode(GL_MODELVIEW);
+		glLoadMatrixd(gl_para);
+
+		glEnable(GL_LIGHTING);
+		glEnable(GL_LIGHT0);
+		glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+		glLightfv(GL_LIGHT0, GL_AMBIENT, ambi);
+		glLightfv(GL_LIGHT0, GL_DIFFUSE, lightZeroColor);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, mat_flash);
+		glMaterialfv(GL_FRONT, GL_SHININESS, mat_flash_shiny);
+		glMaterialfv(GL_FRONT, GL_AMBIENT, mat_ambient);
+		glMatrixMode(GL_MODELVIEW);
+		glTranslatef(0.0, 0.0, 25.0);
+		glScalef(3.0f, 3.0f, 0.3f);
+		glutSolidCube(50.0);
+		glDisable(GL_LIGHTING);
+		glDisable(GL_DEPTH_TEST);
+	}
 }
