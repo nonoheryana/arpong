@@ -45,6 +45,8 @@ void keyEvent(unsigned char key, int x, int y)
 		cleanup();
 		exit(0);
 	}
+	else if(key == 'r')
+		draw_reset();
 }
 
 /**

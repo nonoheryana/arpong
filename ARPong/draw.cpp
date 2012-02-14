@@ -10,6 +10,12 @@ float ball_vx = BALL_SPEED, ball_vy = BALL_SPEED;
 GLuint field_list;
 GLuint pad_list;
 
+void draw_reset(void)
+{
+	ball_x = 100.0f; ball_y = -50.0f;
+	ball_vx = BALL_SPEED; ball_vy = BALL_SPEED;
+}
+
 void draw_init(void)
 {
 	/* Display list for the field */
@@ -79,28 +85,29 @@ void reflectOnPad(ARMat *mat_field, double pad_trans[3][4])
 
 	printf("Position: (%lf, %lf, %lf)\n", ball_lx, ball_ly, ball_lz);
 
-	if(ball_lz <= 0.0f)
+	if(ball_lx >= -60.0f - BALL_RADIUS && ball_lx <= -60.0f + BALL_RADIUS
+	 && ball_ly >= -45.0f - BALL_RADIUS && ball_ly <= 45.0f + BALL_RADIUS
+	 && ball_lz >= -45.0f - BALL_RADIUS && ball_lz <= 45.0f + BALL_RADIUS)
 	{
-		if(ball_lx >= -50.0f && ball_lx <= 50.0f && ball_ly >= -50.0f && ball_ly <= 50.0f)
+		printf("Collision!\n");
+		/* The normal to the pad in field space */
+		ARMat *pad2field = arMatrixAlloc(4, 4);
+		arMatrixInv(pad2field, field2pad);
+
+		float normal_x = pad2field->m[0*4 + 0];
+		float normal_y = pad2field->m[1*4 + 0];
+		float normal_z = pad2field->m[2*4 + 0];
+
+		float dotprod = normal_x * ball_vx + normal_y * ball_vy;
+		if(dotprod >= 0.0f)
 		{
-			/* The normal to the pad in field space */
-			ARMat *pad2field = arMatrixAlloc(4, 4);
-			arMatrixInv(pad2field, field2pad);
-
-			float normal_x = pad2field->m[0*4 + 2];
-			float normal_y = pad2field->m[1*4 + 2];
-			float normal_z = pad2field->m[2*4 + 2];
-
-			float dotprod = normal_x * ball_vx + normal_y * ball_vy;
-			if(dotprod < 10.0f + BALL_RADIUS && dotprod >= 10.0f - BALL_RADIUS)
-			{
-				/* Bounce! */
-				ball_vx -= 2.0f * dotprod * normal_x;
-				ball_vy -= 2.0f * dotprod * normal_y;
-			}
-
-			arMatrixFree(pad2field);
+			printf("Bounce!\n");
+			/* Bounce! */
+			ball_vx -= 2.0f * dotprod * normal_x;
+			ball_vy -= 2.0f * dotprod * normal_y;
 		}
+
+		arMatrixFree(pad2field);
 	}
 
 	arMatrixFree(field2pad);

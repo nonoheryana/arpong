@@ -31,6 +31,7 @@ void mainLoop(void);
 
 /* draw */
 void draw_init(void);
+void draw_reset(void);
 void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, double pad1_trans[3][4]);
 
 /* timer */
