@@ -6,20 +6,21 @@ const float BALL_SPEED = 20.0f; /* Actually speed/sqrt(2) */
 const float BALL_RADIUS = 15.0f;
 
 float ball_x = 100.0f, ball_y = -50.0f;
-float ball_vx = BALL_SPEED, ball_vy = BALL_SPEED;
+float ball_vx = -BALL_SPEED, ball_vy = BALL_SPEED;
 
 GLMmodel *field;
-GLMmodel *pad;
+GLMmodel *pad_oriented;
+GLMmodel *pad_mobile;
 
 void draw_reset(void)
 {
 	ball_x = 100.0f; ball_y = -50.0f;
-	ball_vx = BALL_SPEED; ball_vy = BALL_SPEED;
+	ball_vx = -BALL_SPEED; ball_vy = BALL_SPEED;
 }
 
 void draw_init(void)
 {
-	/* Display list for the field */
+	/* 3D model for the field */
 	field = glmReadOBJ("Data/field.obj");
 	if(field == NULL)
 	{
@@ -27,71 +28,21 @@ void draw_init(void)
 		exit(1);
 	}
 
-	/* Display list for the pad */
-	pad = glmReadOBJ("Data/pad.obj");
-	if(pad == NULL)
+	/* 3D model for the pad (field-aligned component) */
+	pad_oriented = glmReadOBJ("Data/pad_oriented.obj");
+	if(pad_oriented == NULL)
 	{
 		printf("Unable to load models\n");
 		exit(1);
 	}
-}
 
-void reflectOnPad(ARMat *mat_field, double pad_trans[3][4])
-{
-	int i, j;
-	/*
-	* RAQ * BALL_LOCAL = FIELD * BALL_ABS
-	* BALL_LOCAL = RAQ-1 * FIELD * BALL_ABS
-	*/
-	ARMat *mat_raq = arMatrixAlloc(4, 4);
-	for(i = 0; i < 3; i++)
+	/* 3D model for the pad (mobile component) */
+	pad_mobile = glmReadOBJ("Data/pad_mobile.obj");
+	if(pad_mobile == NULL)
 	{
-		for(j = 0; j < 4; j++)
-			mat_raq->m[i*4 + j] = pad_trans[i][j];
+		printf("Unable to load models\n");
+		exit(1);
 	}
-	mat_raq->m[3*4 + 0] = 0.0;
-	mat_raq->m[3*4 + 1] = 0.0;
-	mat_raq->m[3*4 + 2] = 0.0;
-	mat_raq->m[3*4 + 3] = 1.0;
-	arMatrixSelfInv(mat_raq);
-
-	ARMat *field2pad = arMatrixAlloc(4, 4);
-	arMatrixMul(field2pad, mat_raq, mat_field);
-
-	float ball_lx = field2pad->m[0*4 + 0] * ball_x + field2pad->m[0*4 + 1] * ball_y + field2pad->m[0*4 + 2] * BALL_Z + field2pad->m[0*4 + 3];
-	float ball_ly = field2pad->m[1*4 + 0] * ball_x + field2pad->m[1*4 + 1] * ball_y + field2pad->m[1*4 + 2] * BALL_Z + field2pad->m[1*4 + 3];
-	float ball_lz = field2pad->m[2*4 + 0] * ball_x + field2pad->m[2*4 + 1] * ball_y + field2pad->m[2*4 + 2] * BALL_Z + field2pad->m[2*4 + 3];
-
-	printf("Position: (%lf, %lf, %lf)\n", ball_lx, ball_ly, ball_lz);
-
-	if(ball_lx >= -60.0f - BALL_RADIUS && ball_lx <= -60.0f + BALL_RADIUS
-	 && ball_ly >= -45.0f - BALL_RADIUS && ball_ly <= 45.0f + BALL_RADIUS
-	 && ball_lz >= -45.0f - BALL_RADIUS && ball_lz <= 45.0f + BALL_RADIUS)
-	{
-		printf("Collision!\n");
-		/* The normal to the pad in field space */
-		ARMat *pad2field = arMatrixAlloc(4, 4);
-		arMatrixInv(pad2field, field2pad);
-
-		float normal_x = pad2field->m[0*4 + 0];
-		float normal_y = pad2field->m[1*4 + 0];
-		float normal_z = pad2field->m[2*4 + 0];
-
-		float dotprod = normal_x * ball_vx + normal_y * ball_vy;
-		if(dotprod >= 0.0f)
-		{
-			printf("Bounce!\n");
-			/* Bounce! */
-			ball_vx -= 2.0f * dotprod * normal_x;
-			ball_vy -= 2.0f * dotprod * normal_y;
-		}
-
-		arMatrixFree(pad2field);
-	}
-
-
-	arMatrixFree(field2pad);
-	arMatrixFree(mat_raq);
 }
 
 void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, double pad1_trans[3][4])
@@ -130,7 +81,7 @@ void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, doubl
 		/* Draw the field */
 		glPushMatrix();
 		glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
-		glmDraw(field, GLM_SMOOTH | GLM_MATERIAL | GLM_TEXTURE);
+		glmDraw(field, GLM_SMOOTH | GLM_MATERIAL);
 		glPopMatrix();
 
 		/* Move the ball */
@@ -150,39 +101,96 @@ void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, doubl
 		glutSolidSphere(BALL_RADIUS, 16.0f, 16.0f);
 		glPopMatrix();
 
-		ARMat *mat_field = NULL;
+		ARMat *mat_inv_field = NULL;
 		if(pad1_visible /* || pad2_visible*/)
 		{
 			int i, j;
-			mat_field = arMatrixAlloc(4, 4);
+			mat_inv_field = arMatrixAlloc(4, 4);
 			for(i = 0; i < 3; i++)
 			{
 				for(j = 0; j < 4; j++)
-					mat_field->m[i*4 + j] = field_trans[i][j];
+					mat_inv_field->m[i*4 + j] = field_trans[i][j];
 			}
-			mat_field->m[3*4 + 0] = 0.0;
-			mat_field->m[3*4 + 1] = 0.0;
-			mat_field->m[3*4 + 2] = 0.0;
-			mat_field->m[3*4 + 3] = 1.0;
+			mat_inv_field->m[3*4 + 0] = 0.0;
+			mat_inv_field->m[3*4 + 1] = 0.0;
+			mat_inv_field->m[3*4 + 2] = 0.0;
+			mat_inv_field->m[3*4 + 3] = 1.0;
+			arMatrixSelfInv(mat_inv_field);
 		}
 
 		if(pad1_visible)
 		{
-			/* Load the camera transformation matrix for pad1 */
+			/* Calculate the pad coordinates relative to the field */
+			float pad_x, pad_y, pad_z;
+			{
+				int i, j;
+				/*
+				* FIELD * M = PAD
+				* M = FIELD-1 * PAD
+				*/
+				ARMat *mat_pad = arMatrixAlloc(4, 4);
+				for(i = 0; i < 3; i++)
+				{
+					for(j = 0; j < 4; j++)
+						mat_pad->m[i*4 + j] = pad1_trans[i][j];
+				}
+				mat_pad->m[3*4 + 0] = 0.0;
+				mat_pad->m[3*4 + 1] = 0.0;
+				mat_pad->m[3*4 + 2] = 0.0;
+				mat_pad->m[3*4 + 3] = 1.0;
+				ARMat *transfo = arMatrixAllocMul(mat_inv_field, mat_pad);
+				pad_x = transfo->m[0*4 + 3];
+				pad_y = transfo->m[1*4 + 3];
+				pad_z = transfo->m[2*4 + 3];
+				arMatrixFree(transfo);
+			}
+
+			/* Load the camera transformation matrix for pad1: mobile component of the pad */
+			glPushMatrix();
 			argConvGlpara(pad1_trans, gl_para);
 			glMatrixMode(GL_MODELVIEW);
 			glLoadMatrixd(gl_para);
 
-			glPushMatrix();
 			glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
-			glmDraw(pad, GLM_SMOOTH | GLM_MATERIAL | GLM_TEXTURE);
+			/* We want to draw ONLY IN THE Z-BUFFER */
+			glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+			glmDraw(pad_mobile, GLM_SMOOTH | GLM_MATERIAL);
+			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+			/* Back to field space: field-aligned component of the pad */
+			glPopMatrix();
+			glPushMatrix();
+
+			glTranslatef(pad_x, pad_y, 0.0f);
+			glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
+			glmDraw(pad_oriented, GLM_SMOOTH | GLM_MATERIAL);
 			glPopMatrix();
 
-			reflectOnPad(mat_field, pad1_trans);
+			/* Collision detection */
+			if(ball_x >= pad_x - 45.0f - BALL_RADIUS && ball_x <= pad_x - 45.0f + BALL_RADIUS
+			 && ball_y >= pad_y - 45.0f - BALL_RADIUS && ball_y <= pad_y + 45.0f + BALL_RADIUS
+			 && ball_vx > 0.0f)
+			{
+				printf("Collision!\n");
+				ball_vx *= -1.1f;
+			}
 		}
 
-		if(mat_field != NULL)
-			arMatrixFree(mat_field);
+		/* Collision with the left bound (no second pad) */
+		if(ball_x <= -40.0f + BALL_RADIUS && ball_vx < 0.0f)
+			ball_vx *= -1.0f;
+
+		/* Collision with the top/bottom bounds */
+		if(ball_x <= 210.0f + BALL_RADIUS && ball_x >= -40.0f - BALL_RADIUS)
+		{
+			if(ball_y <= -130.0f + BALL_RADIUS && ball_vy < 0.0f)
+				ball_vy *= -1.0f;
+			else if(ball_y >= 30.0f - BALL_RADIUS && ball_vy > 0.0f)
+				ball_vy *= -1.0f;
+		}
+
+		if(mat_inv_field != NULL)
+			arMatrixFree(mat_inv_field);
 	}
 
 	glDisable(GL_LIGHT0);
