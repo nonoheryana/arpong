@@ -21,6 +21,7 @@
 #include <AR/param.h>
 #include <AR/ar.h>
 #include <AR/arMulti.h>
+#include <AR/matrix.h>
 
 void init(void);
 void cleanup(void);
