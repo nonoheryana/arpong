@@ -1,7 +1,8 @@
 #include "ARPong.h"
 
 const float BALL_Z = 10.0f;
-const float BALL_SPEED = 80.0f; /* Actually speed/sqrt(2) */
+const float BALL_SPEED = 20.0f; /* Actually speed/sqrt(2) */
+const float BALL_RADIUS = 15.0f;
 
 float ball_x = 100.0f, ball_y = -50.0f;
 float ball_vx = BALL_SPEED, ball_vy = BALL_SPEED;
@@ -69,16 +70,40 @@ void reflectOnPad(ARMat *mat_field, double pad_trans[3][4])
 	mat_raq->m[3*4 + 3] = 1.0;
 	arMatrixSelfInv(mat_raq);
 
-	ARMat *transfo = arMatrixAlloc(4, 4);
-	arMatrixMul(transfo, mat_raq, mat_field);
+	ARMat *field2pad = arMatrixAlloc(4, 4);
+	arMatrixMul(field2pad, mat_raq, mat_field);
 
-	float ball_lx = transfo->m[0*4 + 0] * ball_x + transfo->m[0*4 + 1] * ball_y + transfo->m[0*4 + 2] * BALL_Z + transfo->m[0*4 + 3];
-	float ball_ly = transfo->m[1*4 + 0] * ball_x + transfo->m[1*4 + 1] * ball_y + transfo->m[1*4 + 2] * BALL_Z + transfo->m[1*4 + 3];
-	float ball_lz = transfo->m[2*4 + 0] * ball_x + transfo->m[2*4 + 1] * ball_y + transfo->m[2*4 + 2] * BALL_Z + transfo->m[2*4 + 3];
+	float ball_lx = field2pad->m[0*4 + 0] * ball_x + field2pad->m[0*4 + 1] * ball_y + field2pad->m[0*4 + 2] * BALL_Z + field2pad->m[0*4 + 3];
+	float ball_ly = field2pad->m[1*4 + 0] * ball_x + field2pad->m[1*4 + 1] * ball_y + field2pad->m[1*4 + 2] * BALL_Z + field2pad->m[1*4 + 3];
+	float ball_lz = field2pad->m[2*4 + 0] * ball_x + field2pad->m[2*4 + 1] * ball_y + field2pad->m[2*4 + 2] * BALL_Z + field2pad->m[2*4 + 3];
 
 	printf("Position: (%lf, %lf, %lf)\n", ball_lx, ball_ly, ball_lz);
 
-	arMatrixFree(transfo);
+	if(ball_lz <= 0.0f)
+	{
+		if(ball_lx >= -50.0f && ball_lx <= 50.0f && ball_ly >= -50.0f && ball_ly <= 50.0f)
+		{
+			/* The normal to the pad in field space */
+			ARMat *pad2field = arMatrixAlloc(4, 4);
+			arMatrixInv(pad2field, field2pad);
+
+			float normal_x = pad2field->m[0*4 + 2];
+			float normal_y = pad2field->m[1*4 + 2];
+			float normal_z = pad2field->m[2*4 + 2];
+
+			float dotprod = normal_x * ball_vx + normal_y * ball_vy;
+			if(dotprod < 10.0f + BALL_RADIUS && dotprod >= 10.0f - BALL_RADIUS)
+			{
+				/* Bounce! */
+				ball_vx -= 2.0f * dotprod * normal_x;
+				ball_vy -= 2.0f * dotprod * normal_y;
+			}
+
+			arMatrixFree(pad2field);
+		}
+	}
+
+	arMatrixFree(field2pad);
 	arMatrixFree(mat_raq);
 }
 
@@ -138,7 +163,7 @@ void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, doubl
 
 		glPushMatrix();
 		glTranslatef(ball_x, ball_y, BALL_Z);
-		glutSolidSphere(15.0f, 16.0f, 16.0f);
+		glutSolidSphere(BALL_RADIUS, 16.0f, 16.0f);
 		glPopMatrix();
 
 		ARMat *mat_field = NULL;
