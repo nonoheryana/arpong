@@ -97,8 +97,6 @@ void reflectOnPad(ARMat *mat_field, double pad_trans[3][4])
 void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, double pad1_trans[3][4])
 {
 	double gl_para[16];
-	GLfloat mat_ambient_blue[] = {0.0f, 0.0f, 1.0f, 1.0f};
-	GLfloat mat_flash_blue[] = {0.0f, 0.0f, 1.0f, 1.0f};
 	GLfloat mat_ambient_red[] = {1.0f, 0.0f, 0.0f, 1.0f};
 	GLfloat mat_flash_red[] = {1.0f, 0.0f, 0.0f, 1.0f};
 	GLfloat mat_flash_shiny[] = {50.0f};
