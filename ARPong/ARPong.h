@@ -28,4 +28,6 @@ void keyEvent(unsigned char key, int x, int y);
 void mainLoop(void);
 void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, double pad1_trans[3][4]);
 
+float timeElapsed(void);
+
 #endif
