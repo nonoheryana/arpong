@@ -1,4 +1,5 @@
 #include "ARPong.h"
+#include "glm.h"
 
 const float BALL_Z = 10.0f;
 const float BALL_SPEED = 20.0f; /* Actually speed/sqrt(2) */
@@ -7,8 +8,8 @@ const float BALL_RADIUS = 15.0f;
 float ball_x = 100.0f, ball_y = -50.0f;
 float ball_vx = BALL_SPEED, ball_vy = BALL_SPEED;
 
-GLuint field_list;
-GLuint pad_list;
+GLMmodel *field;
+GLMmodel *pad;
 
 void draw_reset(void)
 {
@@ -19,42 +20,20 @@ void draw_reset(void)
 void draw_init(void)
 {
 	/* Display list for the field */
-	field_list = glGenLists(1);
-
-	glNewList(field_list, GL_COMPILE);
-	glBegin(GL_QUADS);
+	field = glmReadOBJ("Data/field.obj");
+	if(field == NULL)
 	{
-		size_t f;
-		for(f = 0; f < field_geometry_quads; f++)
-		{
-			glNormal3f(field_geometry[f*15 + 0], field_geometry[f*15 + 1], field_geometry[f*15 + 2]);
-			glVertex3f(field_geometry[f*15 + 3], field_geometry[f*15 + 4], field_geometry[f*15 + 5]);
-			glVertex3f(field_geometry[f*15 + 6], field_geometry[f*15 + 7], field_geometry[f*15 + 8]);
-			glVertex3f(field_geometry[f*15 + 9], field_geometry[f*15 + 10], field_geometry[f*15 + 11]);
-			glVertex3f(field_geometry[f*15 + 12], field_geometry[f*15 + 13], field_geometry[f*15 + 14]);
-		}
+		printf("Unable to load models\n");
+		exit(1);
 	}
-	glEnd();
-	glEndList();
 
 	/* Display list for the pad */
-	pad_list = glGenLists(1);
-
-	glNewList(pad_list, GL_COMPILE);
-	glBegin(GL_QUADS);
+	pad = glmReadOBJ("Data/pad.obj");
+	if(pad == NULL)
 	{
-		int f, v;
-		for(f = 0; f < pad_geometry_quads; f++)
-		{
-			glNormal3f(pad_geometry[f*15 + 0], pad_geometry[f*15 + 1], pad_geometry[f*15 + 2]);
-			glVertex3f(pad_geometry[f*15 + 3], pad_geometry[f*15 + 4], pad_geometry[f*15 + 5]);
-			glVertex3f(pad_geometry[f*15 + 6], pad_geometry[f*15 + 7], pad_geometry[f*15 + 8]);
-			glVertex3f(pad_geometry[f*15 + 9], pad_geometry[f*15 + 10], pad_geometry[f*15 + 11]);
-			glVertex3f(pad_geometry[f*15 + 12], pad_geometry[f*15 + 13], pad_geometry[f*15 + 14]);
-		}
+		printf("Unable to load models\n");
+		exit(1);
 	}
-	glEnd();
-	glEndList();
 }
 
 void reflectOnPad(ARMat *mat_field, double pad_trans[3][4])
@@ -110,6 +89,7 @@ void reflectOnPad(ARMat *mat_field, double pad_trans[3][4])
 		arMatrixFree(pad2field);
 	}
 
+
 	arMatrixFree(field2pad);
 	arMatrixFree(mat_raq);
 }
@@ -149,12 +129,11 @@ void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, doubl
 		glMatrixMode(GL_MODELVIEW);
 		glLoadMatrixd(gl_para);
 
-		glMaterialfv(GL_FRONT, GL_SPECULAR, mat_flash_blue);
-		glMaterialfv(GL_FRONT, GL_SHININESS, mat_flash_shiny);
-		glMaterialfv(GL_FRONT, GL_AMBIENT, mat_ambient_blue);
-
 		/* Draw the field */
-		glCallList(field_list);
+		glPushMatrix();
+		glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
+		glmDraw(field, GLM_SMOOTH | GLM_MATERIAL | GLM_TEXTURE);
+		glPopMatrix();
 
 		/* Move the ball */
 		float old_ball_x = ball_x;
@@ -164,9 +143,9 @@ void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, doubl
 		ball_y += ball_vy * elapsed;
 
 		/* Draw the ball */
-		glMaterialfv(GL_FRONT, GL_SPECULAR, mat_flash_red);
-		glMaterialfv(GL_FRONT, GL_SHININESS, mat_flash_shiny);
-		glMaterialfv(GL_FRONT, GL_AMBIENT, mat_ambient_red);
+		glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_flash_red);
+		glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, mat_flash_shiny);
+		glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, mat_ambient_red);
 
 		glPushMatrix();
 		glTranslatef(ball_x, ball_y, BALL_Z);
@@ -196,11 +175,10 @@ void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, doubl
 			glMatrixMode(GL_MODELVIEW);
 			glLoadMatrixd(gl_para);
 
-			glMaterialfv(GL_FRONT, GL_SPECULAR, mat_flash_blue);
-			glMaterialfv(GL_FRONT, GL_SHININESS, mat_flash_shiny);
-			glMaterialfv(GL_FRONT, GL_AMBIENT, mat_ambient_blue);
-
-			glCallList(pad_list);
+			glPushMatrix();
+			glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
+			glmDraw(pad, GLM_SMOOTH | GLM_MATERIAL | GLM_TEXTURE);
+			glPopMatrix();
 
 			reflectOnPad(mat_field, pad1_trans);
 		}
