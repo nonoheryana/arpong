@@ -10,7 +10,7 @@ float ball_vx = -BALL_SPEED, ball_vy = BALL_SPEED;
 
 GLMmodel *field;
 GLMmodel *pad_oriented;
-GLMmodel *pad_mobile;
+GLuint pad_texture;
 
 void draw_reset(void)
 {
@@ -36,13 +36,9 @@ void draw_init(void)
 		exit(1);
 	}
 
-	/* 3D model for the pad (mobile component) */
-	pad_mobile = glmReadOBJ("Data/pad_mobile.obj");
-	if(pad_mobile == NULL)
-	{
-		printf("Unable to load models\n");
-		exit(1);
-	}
+	/* Texture for the pad (mobile component) */
+	pad_texture = load_texture("Data/pad_texture.jpg");
+	printf("pad_texture = %u\n", pad_texture);
 }
 
 void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, double pad1_trans[3][4])
@@ -51,7 +47,7 @@ void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, doubl
 	GLfloat mat_ambient_red[] = {1.0f, 0.0f, 0.0f, 1.0f};
 	GLfloat mat_flash_red[] = {1.0f, 0.0f, 0.0f, 1.0f};
 	GLfloat mat_flash_shiny[] = {50.0f};
-	GLfloat light_position[] = {100.0f, -50.0f, 0.0f, 0.0f};
+	GLfloat light_position[] = {-100.0f, -50.0f, 0.0f, 0.0f};
 	GLfloat ambi[] = {0.1f, 0.1f, 0.1f, 0.1f};
 	GLfloat lightZeroColor[] = {0.9f, 0.9f, 0.9f, 0.1f};
 
@@ -145,25 +141,13 @@ void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, doubl
 				arMatrixFree(transfo);
 			}
 
-			/* Load the camera transformation matrix for pad1: mobile component of the pad */
 			glPushMatrix();
-			argConvGlpara(pad1_trans, gl_para);
-			glMatrixMode(GL_MODELVIEW);
-			glLoadMatrixd(gl_para);
-
-			glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
-			/* We want to draw ONLY IN THE Z-BUFFER */
-			glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-			glmDraw(pad_mobile, GLM_SMOOTH | GLM_MATERIAL);
-			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-
-			/* Back to field space: field-aligned component of the pad */
-			glPopMatrix();
-			glPushMatrix();
-
 			glTranslatef(pad_x, pad_y, 0.0f);
 			glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
-			glmDraw(pad_oriented, GLM_SMOOTH | GLM_MATERIAL);
+			glEnable(GL_TEXTURE_2D);
+			glBindTexture(GL_TEXTURE_2D, pad_texture);
+			glmDraw(pad_oriented, GLM_SMOOTH | GLM_TEXTURE | GLM_MATERIAL);
+			glDisable(GL_TEXTURE_2D);
 			glPopMatrix();
 
 			/* Collision detection */

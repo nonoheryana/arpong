@@ -29,6 +29,9 @@ void cleanup(void);
 void keyEvent(unsigned char key, int x, int y);
 void mainLoop(void);
 
+/* texture_loader */
+GLuint load_texture(const char *filename);
+
 /* draw */
 void draw_init(void);
 void draw_reset(void);
