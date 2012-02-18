@@ -9,7 +9,7 @@ float ball_x = 100.0f, ball_y = -50.0f;
 float ball_vx = -BALL_SPEED, ball_vy = BALL_SPEED;
 
 GLMmodel *field;
-GLMmodel *pad_oriented;
+GLMmodel *pad;
 GLuint pad_texture;
 
 void draw_reset(void)
@@ -28,9 +28,9 @@ void draw_init(void)
 		exit(1);
 	}
 
-	/* 3D model for the pad (field-aligned component) */
-	pad_oriented = glmReadOBJ("Data/pad_oriented.obj");
-	if(pad_oriented == NULL)
+	/* 3D model for the pad */
+	pad = glmReadOBJ("Data/pad.obj");
+	if(pad == NULL)
 	{
 		printf("Unable to load models\n");
 		exit(1);
@@ -146,7 +146,7 @@ void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, doubl
 			glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
 			glEnable(GL_TEXTURE_2D);
 			glBindTexture(GL_TEXTURE_2D, pad_texture);
-			glmDraw(pad_oriented, GLM_SMOOTH | GLM_TEXTURE | GLM_MATERIAL);
+			glmDraw(pad, GLM_SMOOTH | GLM_TEXTURE | GLM_MATERIAL);
 			glDisable(GL_TEXTURE_2D);
 			glPopMatrix();
 
