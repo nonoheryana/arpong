@@ -47,7 +47,10 @@ void draw_init(void)
 	}
 
 	/* Texture for the pad */
-	pad_texture = load_texture("Data/pad_texture.jpg");
+	if(retro_mode)
+		pad_texture = load_texture("Data/pad_texture_retro.jpg");
+	else
+		pad_texture = load_texture("Data/pad_texture.jpg");
 
 	/* Texture for the playing field */
 	if(retro_mode)
