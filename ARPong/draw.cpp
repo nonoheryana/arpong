@@ -1,6 +1,8 @@
 #include "ARPong.h"
 #include "glm.h"
 
+extern int retro_mode = 0;
+
 const float BALL_Z = 10.0f;
 const float BALL_SPEED = 60.0f; /* Actually speed/sqrt(2) */
 const float BALL_RADIUS = 15.0f;
@@ -48,7 +50,10 @@ void draw_init(void)
 	pad_texture = load_texture("Data/pad_texture.jpg");
 
 	/* Texture for the playing field */
-	field_texture = load_texture("Data/field_texture.jpg");
+	if(retro_mode)
+		field_texture = load_texture("Data/field_texture_retro.jpg");
+	else
+		field_texture = load_texture("Data/field_texture.jpg");
 
 	/* Texture for the overlay */
 	overlay_texture = load_texture("Data/numbers.jpg");

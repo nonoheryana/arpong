@@ -24,6 +24,16 @@ int total_frame_count = 0;
 
 int main(int argc, char **argv)
 {
+	{
+		char **arg = argv;
+		while(*arg)
+		{
+			if(strcmp(*arg, "-r") == 0)
+				retro_mode = 1;
+			arg++;
+		}
+	}
+
 	glutInit(&argc, argv);
 	init();
 
