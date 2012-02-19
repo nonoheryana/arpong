@@ -2,7 +2,7 @@
 #include "glm.h"
 
 const float BALL_Z = 10.0f;
-const float BALL_SPEED = 20.0f; /* Actually speed/sqrt(2) */
+const float BALL_SPEED = 60.0f; /* Actually speed/sqrt(2) */
 const float BALL_RADIUS = 15.0f;
 
 float ball_x = 100.0f, ball_y = -50.0f;
@@ -12,11 +12,18 @@ GLMmodel *field;
 GLMmodel *pad;
 GLuint pad_texture;
 GLuint field_texture;
+GLuint overlay_texture;
+
+int score = 0;
+int lives = 3;
 
 void draw_reset(void)
 {
 	ball_x = 100.0f; ball_y = -50.0f;
 	ball_vx = -BALL_SPEED; ball_vy = BALL_SPEED;
+
+	score = 0;
+	lives = 3;
 }
 
 void draw_init(void)
@@ -42,6 +49,9 @@ void draw_init(void)
 
 	/* Texture for the playing field */
 	field_texture = load_texture("Data/field_texture.jpg");
+
+	/* Texture for the overlay */
+	overlay_texture = load_texture("Data/numbers.jpg");
 }
 
 void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, double pad1_trans[3][4])
@@ -161,22 +171,47 @@ void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, doubl
 			 && ball_y >= pad_y - 45.0f - BALL_RADIUS && ball_y <= pad_y + 45.0f + BALL_RADIUS
 			 && ball_vx > 0.0f)
 			{
-				printf("Collision!\n");
-				ball_vx *= -1.1f;
+				ball_vx *= -1.0f;
+				if(ball_vx < 0.0f) ball_vx -= BALL_SPEED*0.5f;
+				else ball_vx += BALL_SPEED*0.5f;
+				if(ball_vy < 0.0f) ball_vy -= BALL_SPEED*0.4f;
+				else ball_vy += BALL_SPEED*0.4f;
+				score += 10;
 			}
 		}
 
 		/* Collision with the left bound (no second pad) */
-		if(ball_x <= -40.0f + BALL_RADIUS && ball_vx < 0.0f)
+		if(lives > 0 && ball_x <= -40.0f + BALL_RADIUS && ball_vx < 0.0f)
 			ball_vx *= -1.0f;
 
 		/* Collision with the top/bottom bounds */
-		if(ball_x <= 210.0f + BALL_RADIUS && ball_x >= -40.0f - BALL_RADIUS)
+		if(lives > 0 && ball_x <= 210.0f + BALL_RADIUS && ball_x >= -40.0f - BALL_RADIUS)
 		{
 			if(ball_y <= -130.0f + BALL_RADIUS && ball_vy < 0.0f)
 				ball_vy *= -1.0f;
 			else if(ball_y >= 30.0f - BALL_RADIUS && ball_vy > 0.0f)
 				ball_vy *= -1.0f;
+		}
+
+		/* Ball exiting the field */
+		if(lives > 0 && ball_x >= 220.0f)
+		{
+			lives--;
+
+			if(lives == 0)
+			{
+				ball_x = -10E5f;
+				ball_y = 10E5f;
+			}
+			else
+			{
+				ball_x = 100.0f;
+				while(ball_y > 0.0f)
+					ball_y -= 60.0f;
+				while(ball_y < -70.0f)
+					ball_y += 50.0f;
+				ball_vx = -BALL_SPEED; ball_vy = BALL_SPEED;
+			}
 		}
 
 		if(mat_inv_field != NULL)
@@ -187,4 +222,89 @@ void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, doubl
 
 	glDisable(GL_LIGHTING);
 	glDisable(GL_DEPTH_TEST);
+
+	/* Overlay */
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluOrtho2D(0.0, 4.0, 3.0, 0.0);
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+
+	/* Score */
+	{
+		int i = 0;
+		int score_ = score;
+
+		glColor4f(0.0f, 0.0f, 0.0f, 1.0f);
+		glBegin(GL_QUADS);
+			glVertex3f(3.95, 0.05f, 0);
+			glVertex3f(2.95f, 0.05f, 0);
+			glVertex3f(2.95f, 0.35f, 0);
+			glVertex3f(3.95f, 0.35f, 0);
+		glEnd();
+
+		glEnable(GL_TEXTURE_2D);
+		glBindTexture(GL_TEXTURE_2D, overlay_texture);
+		glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+		do
+		{
+			int digit = score_ % 10;
+			int u = digit % 4;
+			int v = digit / 4;
+
+			glBegin(GL_QUADS);
+				glTexCoord2f(u*0.25f, v*0.25f);
+				glVertex2f(3.7f - 0.2f*i, 0.1f);
+
+				glTexCoord2f(u*0.25f + 0.25f, v*0.25f);
+				glVertex2f(3.9f - 0.2f*i, 0.1f);
+
+				glTexCoord2f(u*0.25f + 0.25f, v*0.25f + 0.25f);
+				glVertex2f(3.9f - 0.2f*i, 0.3f);
+
+				glTexCoord2f(u*0.25f, v*0.25f + 0.25f);
+				glVertex2f(3.7f - 0.2f*i, 0.3f);
+			glEnd();
+			
+			score_ /= 10;
+			i++;
+		}
+		while(score_ > 0);
+		glDisable(GL_TEXTURE_2D);
+	}
+
+	/* Lives */
+	{
+		int i;
+		
+		glColor4f(0.0f, 0.0f, 0.0f, 1.0f);
+		glBegin(GL_QUADS);
+			glVertex3f(0.05f, 0.05f, 0);
+			glVertex3f(0.75f, 0.05f, 0);
+			glVertex3f(0.75f, 0.35f, 0);
+			glVertex3f(0.05f, 0.35f, 0);
+		glEnd();
+
+		glEnable(GL_TEXTURE_2D);
+		glBindTexture(GL_TEXTURE_2D, overlay_texture);
+		glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+		for(i = 0; i < lives; i++)
+		{
+			glBegin(GL_QUADS);
+				glTexCoord2f(0.5f, 0.5f);
+				glVertex3f(0.1f + 0.2f*i, 0.1f, 0);
+
+				glTexCoord2f(0.75f, 0.5f);
+				glVertex3f(0.3f + 0.2f*i, 0.1f, 0);
+
+				glTexCoord2f(0.75f, 0.75f);
+				glVertex3f(0.3f + 0.2f*i, 0.3f, 0);
+
+				glTexCoord2f(0.5f, 0.75f);
+				glVertex3f(0.1f + 0.2f*i, 0.3f, 0);
+			glEnd();
+		}
+		glDisable(GL_TEXTURE_2D);
+	}
 }
