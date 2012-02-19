@@ -11,6 +11,7 @@ float ball_vx = -BALL_SPEED, ball_vy = BALL_SPEED;
 GLMmodel *field;
 GLMmodel *pad;
 GLuint pad_texture;
+GLuint field_texture;
 
 void draw_reset(void)
 {
@@ -36,9 +37,11 @@ void draw_init(void)
 		exit(1);
 	}
 
-	/* Texture for the pad (mobile component) */
+	/* Texture for the pad */
 	pad_texture = load_texture("Data/pad_texture.jpg");
-	printf("pad_texture = %u\n", pad_texture);
+
+	/* Texture for the playing field */
+	field_texture = load_texture("Data/field_texture.jpg");
 }
 
 void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, double pad1_trans[3][4])
@@ -77,7 +80,10 @@ void draw(bool field_visible, double field_trans[3][4], bool pad1_visible, doubl
 		/* Draw the field */
 		glPushMatrix();
 		glRotatef(90.0f, 1.0f, 0.0f, 0.0f);
-		glmDraw(field, GLM_SMOOTH | GLM_MATERIAL);
+		glEnable(GL_TEXTURE_2D);
+		glBindTexture(GL_TEXTURE_2D, field_texture);
+		glmDraw(field, GLM_SMOOTH | GLM_TEXTURE | GLM_MATERIAL);
+		glDisable(GL_TEXTURE_2D);
 		glPopMatrix();
 
 		/* Move the ball */
